@@ -3,7 +3,7 @@ interface Action {
   [propName: string]: any
 }
 
-// todo: does this definition make the invariant that a reducer may never transfrom state to undefined???
+// todo: does this definition make the invariant that a reducer may never transform state to undefined???
 type NotUndefined = string | number | boolean | symbol | object
 type Reducer = (state: any, action: Action) => NotUndefined
 
@@ -87,4 +87,68 @@ function createStore(reducer: Reducer, preloadedState: any): IStore {
   return new Store(reducer, preloadedState)
 }
 
-export { createStore, IStore, Action }
+type ReducerObject = {
+  [propName: string]: Reducer
+}
+
+// todo: does returning a new state which is inner equal to previous state harmful???
+function combineReducers(reducers: ReducerObject): Reducer {
+  const keys = Object.keys(reducers)
+
+  return (state, action) => {
+    const nextState = {} as { [propName: string]: any }
+    for (const key of keys) {
+      const reducer = reducers[key]
+      const tinyState = reducer(state, action)
+      nextState[key] = tinyState
+    }
+    return nextState
+  }
+}
+
+type ActionCreator = (...args: any[]) => Action
+type ActionCreatorObject = {
+  [propName: string]: ActionCreator
+}
+type WrappedDispatch = (...args: any[]) => Action
+type WrappedDispatchObject = {
+  [propName: string]: WrappedDispatch
+}
+type DispatchFunc = (action: Action) => Action
+
+function bindActionCreators(
+  actionCreators: ActionCreator | ActionCreatorObject,
+  dispatch: DispatchFunc
+): WrappedDispatch | WrappedDispatchObject {
+  if (isActionCreator(actionCreators)) {
+    return transform(actionCreators, dispatch)
+  }
+
+  const result = {} as WrappedDispatchObject
+  const keys = Object.keys(actionCreators)
+  for (const key of keys) {
+    const actionCreator = actionCreators[key]
+    const wrappedDispatch = transform(actionCreator, dispatch)
+    result[key] = wrappedDispatch
+  }
+  return result
+}
+
+function transform(
+  actionCreator: ActionCreator,
+  dispatch: DispatchFunc
+): WrappedDispatch {
+  return (...args: any[]) => {
+    const action = actionCreator(args)
+    return dispatch(action)
+  }
+}
+
+// todo: more elegent type guard for union type and type alias???
+function isActionCreator(
+  actionCreators: ActionCreator | ActionCreatorObject
+): actionCreators is ActionCreator {
+  return !(actionCreators instanceof Object)
+}
+
+export { createStore, IStore, Action, combineReducers, bindActionCreators }
