@@ -3,9 +3,8 @@ interface Action {
   [propName: string]: any
 }
 
-// todo: does this definition make the invariant that a reducer may never transform state to undefined???
-type NotUndefined = string | number | boolean | symbol | object
-type Reducer = (state: any, action: Action) => NotUndefined
+// todo: is this a type-level way of making the invariant that reducer never returns undefined???
+type Reducer = (state: any, action: Action) => Exclude<any, undefined>
 
 type StoreListener = () => void
 type StoreUnsubscriber = () => void
@@ -15,6 +14,8 @@ interface IStore {
   dispatch(action: Action): Action
   subscrible(listener: StoreListener): StoreUnsubscriber
 }
+
+const INIT_ACTION_TYPE = '__$$tudux/INIT__'
 
 class Store implements IStore {
   private state: any
@@ -27,6 +28,8 @@ class Store implements IStore {
     this.state = preloadState
     this.listeners = []
     this.dispatching = false
+    // to initialize the whole state
+    this.dispatch({ type: INIT_ACTION_TYPE })
   }
 
   getState() {
@@ -83,7 +86,7 @@ class Store implements IStore {
   }
 }
 
-function createStore(reducer: Reducer, preloadedState: any): IStore {
+function createStore(reducer: Reducer, preloadedState?: any): IStore {
   return new Store(reducer, preloadedState)
 }
 
@@ -99,7 +102,11 @@ function combineReducers(reducers: ReducerObject): Reducer {
     const nextState = {} as { [propName: string]: any }
     for (const key of keys) {
       const reducer = reducers[key]
-      const tinyState = reducer(state, action)
+      const tinyState = reducer(state[key], action)
+      // todo: how to deal it more elegantly in a type-level way???
+      if (typeof tinyState === 'undefined') {
+        throw new Error('Reducer should never return undefined.')
+      }
       nextState[key] = tinyState
     }
     return nextState
@@ -116,6 +123,17 @@ type WrappedDispatchObject = {
 }
 type DispatchFunc = (action: Action) => Action
 
+// overloading list
+function bindActionCreators(
+  actionCreators: ActionCreator,
+  dispatch: DispatchFunc
+): WrappedDispatch
+function bindActionCreators(
+  actionCreators: ActionCreatorObject,
+  dispatch: DispatchFunc
+): WrappedDispatchObject
+
+// todo: type-level way of making the compiler to infer what keys the result object should have
 function bindActionCreators(
   actionCreators: ActionCreator | ActionCreatorObject,
   dispatch: DispatchFunc
@@ -139,7 +157,7 @@ function transform(
   dispatch: DispatchFunc
 ): WrappedDispatch {
   return (...args: any[]) => {
-    const action = actionCreator(args)
+    const action = actionCreator(...args)
     return dispatch(action)
   }
 }
@@ -151,4 +169,26 @@ function isActionCreator(
   return !(actionCreators instanceof Object)
 }
 
-export { createStore, IStore, Action, combineReducers, bindActionCreators }
+interface SubStore {
+  getState(): any
+  dispatch(action: Action): Action
+}
+type Middleware = (subStore: SubStore) => (next: DispatchFunc) => Action
+type StoreEnhancer = (_createStore: typeof createStore) => typeof createStore
+
+function applyMiddleware(...middleware: Middleware[]): StoreEnhancer {
+  return createStore => {
+    return (reducer: Reducer, preloadedState?: any) => {
+      return createStore(reducer, preloadedState)
+    }
+  }
+}
+
+export {
+  createStore,
+  IStore,
+  Action,
+  combineReducers,
+  bindActionCreators,
+  applyMiddleware
+}
