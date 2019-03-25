@@ -2,6 +2,8 @@ interface Action {
   type: string
   [propName: string]: any
 }
+// type FuncAction = (dispatch: DispatchFunc, getState: () => any, ...extra: any[]) => void
+// type DispatchAction = Action | FuncAction
 
 // todo: is this a type-level way of making the invariant that reducer never returns undefined???
 type Reducer = (state: any, action: Action) => Exclude<any, undefined>
@@ -173,21 +175,47 @@ interface SubStore {
   getState(): any
   dispatch(action: Action): Action
 }
-type Middleware = (subStore: SubStore) => (next: DispatchFunc) => Action
+type Middleware = (subStore: SubStore) => (next: DispatchFunc) => DispatchFunc
 type StoreEnhancer = (_createStore: typeof createStore) => typeof createStore
 
-function applyMiddleware(...middleware: Middleware[]): StoreEnhancer {
+function applyMiddleware(...middlewares: Middleware[]): StoreEnhancer {
   return createStore => {
     return (reducer: Reducer, preloadedState?: any) => {
-      return createStore(reducer, preloadedState)
+      const store = createStore(reducer, preloadedState)
+      // avoid this method being called in the following `middlewars.map(...)`
+      let enhancedDispatch: DispatchFunc = (_: Action) => {
+        throw new Error('You cannot dispatch when constructing middlewares.')
+      }
+      const subStore = {
+        getState: store.getState.bind(store),
+        dispatch: enhancedDispatch
+      }
+      const chain = middlewares.map(middleware => middleware(subStore))
+      enhancedDispatch = compose(...chain)(store.dispatch.bind(store))
+      return {
+        ...store,
+        dispatch: enhancedDispatch
+      }
     }
   }
 }
 
+function compose(
+  ...funcs: ((next: DispatchFunc) => DispatchFunc)[]
+): (next: DispatchFunc) => DispatchFunc {
+  if (funcs.length === 0) {
+    return next => next
+  }
+  if (funcs.length === 1) {
+    return funcs[0]
+  }
+  return funcs.reduce((a, b) => (next: DispatchFunc) => a(b(next)))
+}
+
 export {
-  createStore,
   IStore,
   Action,
+  createStore,
   combineReducers,
   bindActionCreators,
   applyMiddleware
