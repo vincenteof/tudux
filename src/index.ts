@@ -2,18 +2,26 @@ interface Action {
   type: string
   [propName: string]: any
 }
-// type FuncAction = (dispatch: DispatchFunc, getState: () => any, ...extra: any[]) => void
-// type DispatchAction = Action | FuncAction
+type FuncAction = (
+  dispatch: DispatchFunc,
+  getState: () => any,
+  ...extra: any[]
+) => void
+type Dispatchedable = Action | FuncAction
+
+function isPlainAction(action: Dispatchedable): action is Action {
+  return (action as Action).type !== undefined
+}
 
 // todo: is this a type-level way of making the invariant that reducer never returns undefined???
-type Reducer = (state: any, action: Action) => Exclude<any, undefined>
+type Reducer = (state: any, action: Dispatchedable) => Exclude<any, undefined>
 
 type StoreListener = () => void
 type StoreUnsubscriber = () => void
 
 interface IStore {
   getState(): any
-  dispatch(action: Action): Action
+  dispatch(action: Dispatchedable): Dispatchedable
   subscrible(listener: StoreListener): StoreUnsubscriber
 }
 
@@ -30,7 +38,8 @@ class Store implements IStore {
     this.state = preloadState
     this.listeners = []
     this.dispatching = false
-    // to initialize the whole state
+    // initialize the whole state, if preloadState provided, it will be the initial state
+    // otherwise the state will be default value of reducer
     this.dispatch({ type: INIT_ACTION_TYPE })
   }
 
@@ -44,7 +53,7 @@ class Store implements IStore {
     return this.state
   }
 
-  dispatch(action: Action): Action {
+  dispatch(action: Dispatchedable): Dispatchedable {
     if (this.dispatching) {
       throw new Error('Reducers may not dispatch actions.')
     }
@@ -88,7 +97,18 @@ class Store implements IStore {
   }
 }
 
-function createStore(reducer: Reducer, preloadedState?: any): IStore {
+function createStore(
+  reducer: Reducer,
+  preloadedState?: any,
+  enhancer?: StoreEnhancer
+): IStore {
+  // todo: deal with this ugly shit
+  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
+    return preloadedState(createStore)(reducer)
+  }
+  if (enhancer) {
+    return enhancer(createStore)(reducer, preloadedState)
+  }
   return new Store(reducer, preloadedState)
 }
 
@@ -115,15 +135,15 @@ function combineReducers(reducers: ReducerObject): Reducer {
   }
 }
 
-type ActionCreator = (...args: any[]) => Action
+type ActionCreator = (...args: any[]) => Dispatchedable
 type ActionCreatorObject = {
   [propName: string]: ActionCreator
 }
-type WrappedDispatch = (...args: any[]) => Action
+type WrappedDispatch = (...args: any[]) => Dispatchedable
 type WrappedDispatchObject = {
   [propName: string]: WrappedDispatch
 }
-type DispatchFunc = (action: Action) => Action
+type DispatchFunc = (action: Dispatchedable) => Dispatchedable
 
 // overloading list
 function bindActionCreators(
@@ -173,7 +193,7 @@ function isActionCreator(
 
 interface SubStore {
   getState(): any
-  dispatch(action: Action): Action
+  dispatch(action: Dispatchedable): Dispatchedable
 }
 type Middleware = (subStore: SubStore) => (next: DispatchFunc) => DispatchFunc
 type StoreEnhancer = (_createStore: typeof createStore) => typeof createStore
@@ -183,7 +203,7 @@ function applyMiddleware(...middlewares: Middleware[]): StoreEnhancer {
     return (reducer: Reducer, preloadedState?: any) => {
       const store = createStore(reducer, preloadedState)
       // avoid this method being called in the following `middlewars.map(...)`
-      let enhancedDispatch: DispatchFunc = (_: Action) => {
+      let enhancedDispatch: DispatchFunc = (_: Dispatchedable) => {
         throw new Error('You cannot dispatch when constructing middlewares.')
       }
       const subStore = {
@@ -215,8 +235,11 @@ function compose(
 export {
   IStore,
   Action,
+  Dispatchedable,
+  isPlainAction,
   createStore,
   combineReducers,
   bindActionCreators,
-  applyMiddleware
+  applyMiddleware,
+  Middleware
 }
