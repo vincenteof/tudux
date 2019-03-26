@@ -1,10 +1,10 @@
 import {
   applyMiddleware,
   Action,
-  createStore,
   Middleware,
   Dispatchedable,
-  isPlainAction
+  isPlainAction,
+  createStore
 } from '../src/index'
 
 describe('add logging ability of a store', () => {
@@ -35,10 +35,14 @@ describe('add logging ability of a store', () => {
     return state
   }
   it('dispatches with logs', () => {
-    const store = createStore(reducer, applyMiddleware(logger))
+    const store = createStore(reducer, { enhancer: applyMiddleware(logger) })
     store.dispatch({ type: 'FIRST' })
-    expect(MyConsole.log).toHaveBeenCalledWith(
+    expect(MyConsole.log).toHaveBeenLastCalledWith(
       'action has be dispatched: FIRST'
+    )
+    store.dispatch({ type: 'SECOND' })
+    expect(MyConsole.log).toHaveBeenLastCalledWith(
+      'action has be dispatched: SECOND'
     )
   })
 })

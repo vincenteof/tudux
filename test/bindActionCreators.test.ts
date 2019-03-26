@@ -1,4 +1,9 @@
-import { createStore, bindActionCreators, Action } from '../src/index'
+import {
+  createStore,
+  bindActionCreators,
+  Dispatchedable,
+  isPlainAction
+} from '../src/index'
 
 describe('transform action creators to wrapped dispatch method', () => {
   const addTodo = (text: string) => {
@@ -13,17 +18,20 @@ describe('transform action creators to wrapped dispatch method', () => {
       id
     }
   }
-  const reducer = (state = { todos: [] }, action: Action) => {
-    switch (action.type) {
-      case 'ADD_TODO':
-        return { todos: [...state.todos, action.text] }
-      case 'REMOVE_TODO':
-        const { todos } = state
-        todos.splice(action.id, 1)
-        return { todos: [...todos] }
-      default:
-        return state
+  const reducer = (state = { todos: [] }, action: Dispatchedable) => {
+    if (isPlainAction(action)) {
+      switch (action.type) {
+        case 'ADD_TODO':
+          return { todos: [...state.todos, action.text] }
+        case 'REMOVE_TODO':
+          const { todos } = state
+          todos.splice(action.id, 1)
+          return { todos: [...todos] }
+        default:
+          return state
+      }
     }
+    return state
   }
   it('creates wrapped dispath method and call it directly', () => {
     const store = createStore(reducer)

@@ -33,9 +33,9 @@ class Store implements IStore {
   private listeners: StoreListener[]
   private dispatching: boolean
 
-  constructor(reducer: Reducer, preloadState: any) {
+  constructor(reducer: Reducer, preloadedState: any) {
     this.reducer = reducer
-    this.state = preloadState
+    this.state = preloadedState
     this.listeners = []
     this.dispatching = false
     // initialize the whole state, if preloadState provided, it will be the initial state
@@ -97,19 +97,25 @@ class Store implements IStore {
   }
 }
 
-function createStore(
-  reducer: Reducer,
-  preloadedState?: any,
+// function optional arguments works very weiredly with `any`,
+// so i create a object to hold all optional arguments
+interface CreateStoreOption {
+  preloadedState?: any
   enhancer?: StoreEnhancer
-): IStore {
-  // todo: deal with this ugly shit
-  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
-    return preloadedState(createStore)(reducer)
+}
+
+function createStore(reducer: Reducer, options?: CreateStoreOption): IStore {
+  if (!options) {
+    return new Store(reducer, undefined)
   }
-  if (enhancer) {
-    return enhancer(createStore)(reducer, preloadedState)
+
+  if (options.enhancer) {
+    const storedEnhancer = options.enhancer
+    const preloadedStateOption = { preloadedState: options.preloadedState }
+    return storedEnhancer(createStore)(reducer, preloadedStateOption)
   }
-  return new Store(reducer, preloadedState)
+
+  return new Store(reducer, options.preloadedState)
 }
 
 type ReducerObject = {

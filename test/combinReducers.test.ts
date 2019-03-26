@@ -1,41 +1,47 @@
-import { combineReducers, Action } from '../src/index'
+import { combineReducers, Dispatchedable, isPlainAction } from '../src/index'
 
 describe('combine small reducers to a big one', () => {
-  const reducer1 = (state = 'INIT_ONE', action: Action) => {
-    switch (action.type) {
-      case 'ONE_ONE':
-        return {
-          value: 'ONE'
-        }
-      case 'ONE_TWO':
-        return {
-          value: 'TWO'
-        }
-      case 'TWO_ONE':
-        return {
-          other: 'ahh'
-        }
-      default:
-        return state
+  const reducer1 = (state = 'INIT_ONE', action: Dispatchedable) => {
+    if (isPlainAction(action)) {
+      switch (action.type) {
+        case 'ONE_ONE':
+          return {
+            value: 'ONE'
+          }
+        case 'ONE_TWO':
+          return {
+            value: 'TWO'
+          }
+        case 'TWO_ONE':
+          return {
+            other: 'ahh'
+          }
+        default:
+          return state
+      }
     }
+    return state
   }
-  const reducer2 = (state = 'INIT_TWO', action: Action) => {
-    switch (action.type) {
-      case 'TWO_ONE':
-        return {
-          value: 'ONE'
-        }
-      case 'TWO_TWO':
-        return {
-          value: 'TWO'
-        }
-      case 'ONE_ONE':
-        return {
-          other: 'opp'
-        }
-      default:
-        return state
+  const reducer2 = (state = 'INIT_TWO', action: Dispatchedable) => {
+    if (isPlainAction(action)) {
+      switch (action.type) {
+        case 'TWO_ONE':
+          return {
+            value: 'ONE'
+          }
+        case 'TWO_TWO':
+          return {
+            value: 'TWO'
+          }
+        case 'ONE_ONE':
+          return {
+            other: 'opp'
+          }
+        default:
+          return state
+      }
     }
+    return state
   }
   const reducer = combineReducers({
     first: reducer1,
@@ -91,17 +97,20 @@ describe('combine small reducers to a big one', () => {
   })
 
   it('throws error when reducer returns undefined', () => {
-    const badReducer = (state = 'INIT', action: Action) => {
-      switch (action.type) {
-        case 'ONE':
-          return {
-            value: 'ONE'
-          }
-        case 'OPP':
-          return undefined
-        default:
-          return state
+    const badReducer = (state = 'INIT', action: Dispatchedable) => {
+      if (isPlainAction(action)) {
+        switch (action.type) {
+          case 'ONE':
+            return {
+              value: 'ONE'
+            }
+          case 'OPP':
+            return undefined
+          default:
+            return state
+        }
       }
+      return state
     }
     const withBad = combineReducers({
       good: reducer1,
