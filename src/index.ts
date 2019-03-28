@@ -13,8 +13,13 @@ function isPlainAction(action: Dispatchedable): action is Action {
   return (action as Action).type !== undefined
 }
 
-// todo: is this a type-level way of making the invariant that reducer never returns undefined???
-type Reducer = (state: any, action: Dispatchedable) => Exclude<any, undefined>
+// a type-level way of making the invariant that reducer never returns undefined
+// (and i also exclude null)
+type StoreState = { [propName: string]: any } | string | boolean | number
+type Reducer = (
+  state: StoreState | undefined,
+  action: Dispatchedable
+) => StoreState
 
 type StoreListener = () => void
 type StoreUnsubscriber = () => void
@@ -130,7 +135,10 @@ function combineReducers(reducers: ReducerObject): Reducer {
     const nextState = {} as { [propName: string]: any }
     for (const key of keys) {
       const reducer = reducers[key]
-      const tinyState = reducer(state[key], action)
+      // you should make the preloadedState the same shape as reducers object if using preloadedState,
+      // otherwise an runtime undefined error may happen
+      const shapedState = state as { [propName: string]: any }
+      const tinyState = reducer(shapedState[key], action)
       // todo: how to deal it more elegantly in a type-level way???
       if (typeof tinyState === 'undefined') {
         throw new Error('Reducer should never return undefined.')
@@ -146,9 +154,7 @@ type ActionCreatorObject = {
   [propName: string]: ActionCreator
 }
 type WrappedDispatch = (...args: any[]) => Dispatchedable
-type WrappedDispatchObject = {
-  [propName: string]: WrappedDispatch
-}
+type WrappedDispatchObject<T> = { [propName in keyof T]: WrappedDispatch }
 type DispatchFunc = (action: Dispatchedable) => Dispatchedable
 
 // overloading list
@@ -156,21 +162,21 @@ function bindActionCreators(
   actionCreators: ActionCreator,
   dispatch: DispatchFunc
 ): WrappedDispatch
-function bindActionCreators(
-  actionCreators: ActionCreatorObject,
+// type-level way of making the compiler to infer what keys the result object should have
+function bindActionCreators<T extends ActionCreatorObject>(
+  actionCreators: T,
   dispatch: DispatchFunc
-): WrappedDispatchObject
+): WrappedDispatchObject<T>
 
-// todo: type-level way of making the compiler to infer what keys the result object should have
-function bindActionCreators(
-  actionCreators: ActionCreator | ActionCreatorObject,
+function bindActionCreators<T extends ActionCreatorObject>(
+  actionCreators: ActionCreator | T,
   dispatch: DispatchFunc
-): WrappedDispatch | WrappedDispatchObject {
+): WrappedDispatch | WrappedDispatchObject<T> {
   if (isActionCreator(actionCreators)) {
     return transform(actionCreators, dispatch)
   }
 
-  const result = {} as WrappedDispatchObject
+  const result = {} as WrappedDispatchObject<typeof actionCreators>
   const keys = Object.keys(actionCreators)
   for (const key of keys) {
     const actionCreator = actionCreators[key]
@@ -190,11 +196,10 @@ function transform(
   }
 }
 
-// todo: more elegent type guard for union type and type alias???
 function isActionCreator(
   actionCreators: ActionCreator | ActionCreatorObject
 ): actionCreators is ActionCreator {
-  return !(actionCreators instanceof Object)
+  return actionCreators instanceof Function
 }
 
 interface SubStore {
@@ -247,5 +252,6 @@ export {
   combineReducers,
   bindActionCreators,
   applyMiddleware,
-  Middleware
+  Middleware,
+  Reducer
 }
