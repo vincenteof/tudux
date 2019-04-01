@@ -2,7 +2,8 @@ import {
   createStore,
   bindActionCreators,
   Dispatchedable,
-  isPlainAction
+  isPlainAction,
+  StoreState
 } from '../src/index'
 
 describe('transform action creators to wrapped dispatch method', () => {
@@ -18,13 +19,17 @@ describe('transform action creators to wrapped dispatch method', () => {
       id
     }
   }
-  const reducer = (state = { todos: [] }, action: Dispatchedable) => {
+  const reducer = (
+    state: StoreState = { todos: [] },
+    action: Dispatchedable
+  ) => {
+    const reshapedState = state as { todos: string[] }
     if (isPlainAction(action)) {
       switch (action.type) {
         case 'ADD_TODO':
-          return { todos: [...state.todos, action.text] }
+          return { todos: [...reshapedState.todos, action.text] }
         case 'REMOVE_TODO':
-          const { todos } = state
+          const { todos } = reshapedState
           todos.splice(action.id, 1)
           return { todos: [...todos] }
         default:

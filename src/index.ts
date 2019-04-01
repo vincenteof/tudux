@@ -22,12 +22,19 @@ type Reducer = (
 ) => StoreState
 
 type StoreListener = () => void
-type StoreUnsubscriber = () => void
+type StoreUnsubscribe = () => void
+type StoreObservable = {
+  subscribe(observer: {
+    next?: (state: StoreState) => void
+  }): { unsubscribe: StoreUnsubscribe }
+  [Symbol.observable](): StoreObservable
+}
 
 interface IStore {
   getState(): any
   dispatch(action: Dispatchedable): Dispatchedable
-  subscrible(listener: StoreListener): StoreUnsubscriber
+  subscribe(listener: StoreListener): StoreUnsubscribe
+  observable(): StoreObservable
 }
 
 const INIT_ACTION_TYPE = '__$$tudux/INIT__'
@@ -79,24 +86,43 @@ class Store implements IStore {
     return action
   }
 
-  subscrible(listener: StoreListener): StoreUnsubscriber {
+  subscribe(listener: StoreListener): StoreUnsubscribe {
     if (this.dispatching) {
-      throw new Error('You should not call store.subscrible() in reducer')
+      throw new Error('You should not call store.subscribe() in reducer')
     }
 
-    // this flag is used to solve the problem that same listener subscribles twice
+    // this flag is used to solve the problem that same listener subscribes twice
     // while the previous used unsubscriber still works
-    let isSubscribled = true
+    let issubscribed = true
     this.listeners.push(listener)
 
     return () => {
-      if (!isSubscribled) {
+      if (!issubscribed) {
         return
       }
       const pos = this.listeners.indexOf(listener)
       if (pos >= 0) {
         this.listeners.splice(pos, 1)
-        isSubscribled = false
+        issubscribed = false
+      }
+    }
+  }
+
+  observable() {
+    const outer = this
+    return {
+      subscribe(observer: { next?: (state: StoreState) => void }) {
+        const observeState = () => {
+          if (observer.next) {
+            observer.next(outer.getState())
+          }
+        }
+
+        const unsubscribe = outer.subscribe(observeState)
+        return { unsubscribe }
+      },
+      [Symbol.observable]() {
+        return this
       }
     }
   }
@@ -246,6 +272,7 @@ function compose(
 export {
   IStore,
   Action,
+  StoreState,
   Dispatchedable,
   isPlainAction,
   createStore,

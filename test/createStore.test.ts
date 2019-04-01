@@ -1,7 +1,12 @@
-import { createStore, isPlainAction, Dispatchedable } from '../src/index'
+import {
+  createStore,
+  isPlainAction,
+  Dispatchedable,
+  StoreState
+} from '../src/index'
 
 describe('store creation and basic usage', () => {
-  const reducer = (state: any = 'INIT', action: Dispatchedable) => {
+  const reducer = (state: StoreState = 'INIT', action: Dispatchedable) => {
     if (isPlainAction(action)) {
       switch (action.type) {
         case 'FIRST':
@@ -33,5 +38,35 @@ describe('store creation and basic usage', () => {
     expect(store.getState()).toBe('First')
     store.dispatch({ type: 'SECOND' })
     expect(store.getState()).toMatchObject({ value: 'Second' })
+  })
+
+  it('creates a store and makes observation', () => {
+    const MyConsole = {
+      log: jest.fn()
+    }
+    const store = createStore(reducer)
+    const observable = store.observable()
+    const { unsubscribe } = observable.subscribe({
+      next: state => MyConsole.log(state)
+    })
+    store.dispatch({ type: 'FIRST' })
+    expect(MyConsole.log).toHaveBeenLastCalledWith('First')
+    unsubscribe()
+    store.dispatch({ type: 'SECONED' })
+    expect(MyConsole.log).toHaveBeenCalled()
+  })
+
+  it('creates a store and unsubscribes', () => {
+    const MyConsole = {
+      log: jest.fn()
+    }
+    const store = createStore(reducer)
+    const observable = store.observable()
+    const { unsubscribe } = observable.subscribe({
+      next: state => MyConsole.log(state)
+    })
+    unsubscribe()
+    store.dispatch({ type: 'FIRST' })
+    expect(MyConsole.log).not.toHaveBeenCalled()
   })
 })

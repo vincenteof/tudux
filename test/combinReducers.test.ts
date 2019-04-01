@@ -1,7 +1,12 @@
-import { combineReducers, Dispatchedable, isPlainAction } from '../src/index'
+import {
+  combineReducers,
+  Dispatchedable,
+  isPlainAction,
+  StoreState
+} from '../src/index'
 
 describe('combine small reducers to a big one', () => {
-  const reducer1 = (state = 'INIT_ONE', action: Dispatchedable) => {
+  const reducer1 = (state: StoreState = 'INIT_ONE', action: Dispatchedable) => {
     if (isPlainAction(action)) {
       switch (action.type) {
         case 'ONE_ONE':
@@ -22,7 +27,7 @@ describe('combine small reducers to a big one', () => {
     }
     return state
   }
-  const reducer2 = (state = 'INIT_TWO', action: Dispatchedable) => {
+  const reducer2 = (state: StoreState = 'INIT_TWO', action: Dispatchedable) => {
     if (isPlainAction(action)) {
       switch (action.type) {
         case 'TWO_ONE':
@@ -96,29 +101,30 @@ describe('combine small reducers to a big one', () => {
     })
   })
 
-  it('throws error when reducer returns undefined', () => {
-    const badReducer = (state = 'INIT', action: Dispatchedable) => {
-      if (isPlainAction(action)) {
-        switch (action.type) {
-          case 'ONE':
-            return {
-              value: 'ONE'
-            }
-          case 'OPP':
-            return undefined
-          default:
-            return state
-        }
-      }
-      return state
-    }
-    const withBad = combineReducers({
-      good: reducer1,
-      bad: badReducer
-    })
-    const nextState1 = withBad({}, { type: 'UNKNOWN' })
-    expect(() => {
-      withBad(nextState1, { type: 'OPP' })
-    }).toThrow()
-  })
+  // this case has been replaced by type system check
+  // it('throws error when reducer returns undefined', () => {
+  //   const badReducer = (state: StoreState = 'INIT', action: Dispatchedable) => {
+  //     if (isPlainAction(action)) {
+  //       switch (action.type) {
+  //         case 'ONE':
+  //           return {
+  //             value: 'ONE'
+  //           }
+  //         case 'OPP':
+  //           return undefined
+  //         default:
+  //           return state
+  //       }
+  //     }
+  //     return state
+  //   }
+  //   const withBad = combineReducers({
+  //     good: reducer1,
+  //     bad: badReducer
+  //   })
+  //   const nextState1 = withBad({}, { type: 'UNKNOWN' })
+  //   expect(() => {
+  //     withBad(nextState1, { type: 'OPP' })
+  //   }).toThrow()
+  // })
 })

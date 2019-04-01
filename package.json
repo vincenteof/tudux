@@ -1,7 +1,8 @@
 {
-  "name": "personal-typescript-starter",
+  "name": "tudux",
   "version": "0.0.1",
   "description": "redux for typescript",
+  "repository": "https://github.com/vincenteof/tudux",
   "main": "dist/tudux.umd.js",
   "module": "dist/tudux.es5.js",
   "scripts": {

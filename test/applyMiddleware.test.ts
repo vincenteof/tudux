@@ -4,7 +4,8 @@ import {
   Middleware,
   Dispatchedable,
   isPlainAction,
-  createStore
+  createStore,
+  StoreState
 } from '../src/index'
 
 describe('add logging ability of a store', () => {
@@ -19,7 +20,7 @@ describe('add logging ability of a store', () => {
     }
   }
   // todo: why here it reports warning if the type of action is `Action`
-  const reducer = (state: any = 'INIT', action: Dispatchedable) => {
+  const reducer = (state: StoreState = 'INIT', action: Dispatchedable) => {
     if (isPlainAction(action)) {
       switch (action.type) {
         case 'FIRST':
